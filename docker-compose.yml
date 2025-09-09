@@ -1,0 +1,61 @@
+services:
+  # Our GoMetrics application
+  gometrics:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - COLLECTOR_INTERVAL=5s
+      - SAMPLE_INTERVAL=250ms
+      - BUFFER_SIZE=100
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring
+
+  # Prometheus - scrapes metrics from our app
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - monitoring
+
+  # Grafana - creates beautiful dashboards
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./config/grafana/provisioning:/etc/grafana/provisioning
+      - ./config/grafana/dashboards:/var/lib/grafana/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring
+
+# Networks
+networks:
+  monitoring:
+    driver: bridge
+
+# Volumes for data persistence
+volumes:
+  prometheus_data:
+  grafana_data:
